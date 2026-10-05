@@ -1,0 +1,88 @@
+name: Validate PowerShell module
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+    inputs:
+      release-tag:
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release-tag != '' && format('refs/tags/{0}', inputs.release-tag) || github.sha }}
+          fetch-depth: 0
+      - name: Install test tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion 1.0.0
+          $modules = Join-Path $env:ProgramFiles 'WindowsPowerShell/Modules'
+          Save-PSResource Pester -Version 5.7.1 -Repository PSGallery -Path $modules -TrustRepository
+          Save-PSResource PSScriptAnalyzer -Version 1.23.0 -Repository PSGallery -Path $modules -TrustRepository
+      - name: Install native Windows GnuPG for isolated tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Git's MSYS gpg interprets Windows GNUPGHOME paths as relative POSIX paths.
+          # Use native Gpg4win, the same dependency documented for module users.
+          $candidates = @("${env:ProgramFiles(x86)}\GnuPG\bin", "${env:ProgramFiles}\GnuPG\bin")
+          $directory = $candidates | Where-Object { Test-Path (Join-Path $_ 'gpg.exe') } | Select-Object -First 1
+          if (-not $directory) {
+            choco install gpg4win --yes --no-progress
+            if ($LASTEXITCODE -notin @(0, 3010)) { throw 'Gpg4win installation failed.' }
+            $directory = $candidates | Where-Object { Test-Path (Join-Path $_ 'gpg.exe') } | Select-Object -First 1
+          }
+          if (-not $directory) { throw 'Native Windows GnuPG was not found.' }
+          $directory | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Check release tag
+        if: inputs.release-tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: ./scripts/Test-Release.ps1 -Tag $env:RELEASE_TAG
+      - name: Validate and test
+        run: ./scripts/Test-Module.ps1
+      - name: Analyze module
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.23.0
+          $findings = @(Invoke-ScriptAnalyzer -Path ./src -Recurse)
+          $findings | Format-Table -AutoSize
+          if (@($findings | Where-Object Severity -eq Error).Count) { throw 'ScriptAnalyzer errors found.' }
+      - name: Stage module
+        run: ./scripts/Build-Module.ps1
+      - name: Test local package publication and installation
+        if: matrix.shell == 'pwsh'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $feed = Join-Path $env:RUNNER_TEMP 'maven-gallery-feed'
+          $installed = Join-Path $env:RUNNER_TEMP 'maven-gallery-install'
+          New-Item $feed, $installed -ItemType Directory -Force | Out-Null
+          Register-PSResourceRepository -Name MavenLocalTest -Uri $feed -Trusted
+          try {
+            Publish-PSResource -Path ./dist/Apexfission.MavenTools -Repository MavenLocalTest
+            $version = (Import-PowerShellDataFile ./dist/Apexfission.MavenTools/Apexfission.MavenTools.psd1).ModuleVersion
+            Save-PSResource -Name Apexfission.MavenTools -Version $version -Repository MavenLocalTest -Path $installed
+            $manifest = Get-ChildItem $installed -Recurse -Filter Apexfission.MavenTools.psd1 | Select-Object -First 1
+            Import-Module $manifest.FullName -Force
+            if (@(Get-Command -Module Apexfission.MavenTools).Count -ne 6) { throw 'Installed package exports are incomplete.' }
+          } finally { Unregister-PSResourceRepository MavenLocalTest }
+      - uses: actions/upload-artifact@v4
+        if: matrix.shell == 'pwsh'
+        with:
+          name: powershell-module
+          path: dist/Apexfission.MavenTools/

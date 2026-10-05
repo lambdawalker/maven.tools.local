@@ -1,54 +1,61 @@
-# Maven publishing tools
+# Apexfission Maven Tools
 
-Windows PowerShell tools for preparing Maven Central publishing: generate namespace-specific GPG signing keys, publish public keys, save encrypted credentials, and configure GitHub Actions environment secrets.
+A Windows PowerShell module for preparing Maven Central publishing: generate namespace-specific GPG signing keys, publish public keys, save encrypted credentials, and configure GitHub Actions environment secrets.
 
 These tools prepare credentials and signing infrastructure. They do **not** build artifacts, register a Central namespace, configure Gradle/Maven, or trigger a release.
 
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `maven-key` | Generate a signing key in your GPG keyring; no exported key files |
-| `list-keys` | Display identities, fingerprints, subkeys and expiration with colors |
-| `upload` | Validate a local signing key and publish its public key to a keyserver |
-| `save-credentials` | Save GitHub and Maven credentials as separately encrypted blocks |
-| `maven-github-env-setup` | Create a missing GitHub environment and configure its secrets |
-
-Each command has a PowerShell script and a BAT launcher in [`bin`](bin). The earlier misspelling `maven-githug-env-setup` remains available as a compatibility BAT launcher.
-
 ## Install
 
-Requires Windows PowerShell **5.1**, [Gpg4win/GnuPG](https://www.gpg4win.org/), and [GitHub CLI](https://cli.github.com/) for GitHub setup. The BAT launchers use `powershell.exe`. PowerShell 7 compatibility has not been comprehensively tested.
+**The module is prepared for its first release.** The Gallery install command below
+will work after version 0.1.0 has been published. Maintainers: follow the
+[Gallery publishing guide](docs/publishing.md) to create the account/API key and release.
 
 ```powershell
-git clone https://github.com/lambdawalker/maven.tools.publish.git
-cd maven.tools.publish
-
-gpg --version
-gh --version
+Install-Module Apexfission.MavenTools -Scope CurrentUser -Repository PSGallery
+Import-Module Apexfission.MavenTools
+Test-MavenToolsDependency
 ```
 
-Run directly with `.\bin\maven-key.bat`, or add this repository's `bin` directory to your user PATH:
+Requires Windows PowerShell **5.1** or **PowerShell 7 on Windows**,
+[Gpg4win/GnuPG](https://www.gpg4win.org/), and
+[GitHub CLI](https://cli.github.com/) for GitHub environment setup.
+Native dependencies are installed separately; importing the module never changes
+keys or credentials. Linux/macOS are not supported targets in this release.
+
+To use the source before publication:
 
 ```powershell
-$toolsBin = (Resolve-Path .\bin).Path
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($toolsBin -notin ($userPath -split ';')) {
-    $parts = @($userPath, $toolsBin) | Where-Object { $_ }
-    [Environment]::SetEnvironmentVariable('Path', ($parts -join ';'), 'User')
-}
+git clone https://github.com/lambdawalker/maven.tools.local.git
+cd maven.tools.local
+Import-Module ./src/Apexfission.MavenTools/Apexfission.MavenTools.psd1
 ```
 
-Reopen your terminal. You can now invoke commands from any directory. Keep each BAT beside its corresponding PS1. Review downloaded scripts before using `Unblock-File` if Windows marks them as downloaded. See [troubleshooting](docs/troubleshooting.md) for execution-policy restrictions.
+## Commands
+
+| Module command | Legacy launcher | Purpose |
+| --- | --- | --- |
+| `New-MavenSigningKey` | `maven-key` | Generate a signing key in your GPG keyring |
+| `Get-MavenSigningKey` | `list-keys` | Display identities, fingerprints and expiration |
+| `Publish-MavenPublicKey` | `upload` | Validate signing and publish the public key |
+| `Save-MavenCredentials` | `save-credentials` | Save independently encrypted credential blocks |
+| `Set-MavenGitHubEnvironment` | `maven-github-env-setup` | Configure or verify GitHub environment secrets |
+| `Test-MavenToolsDependency` | None | Check native tools on PATH without running them |
+
+Use `Get-Help <command> -Full` for help and examples. The correctly spelled PS1/BAT
+launchers remain in `bin` for source-clone users and forward to the same module
+implementation. Keep the whole checkout together if you add `bin` to PATH.
+The redundant typo launcher `maven-githug-env-setup.bat` was removed; use
+`maven-github-env-setup.bat`. Gallery installs expose module commands, not BAT launchers.
 
 ## Configure key defaults
 
 ```powershell
 New-Item -ItemType Directory -Force "$HOME\.maven-key" | Out-Null
-Copy-Item .\examples\config.example.json "$HOME\.maven-key\config.json"
+Copy-Item (Join-Path (Get-Module Apexfission.MavenTools).ModuleBase "examples/config.example.json") "$HOME\.maven-key\config.json"
 notepad "$HOME\.maven-key\config.json"
 ```
 
+For source imports, copy `./examples/config.example.json` instead.
 Edit the example name and email before generating a key. Do not overwrite an existing configuration if you have already customized it.
 
 ```json
@@ -69,23 +76,23 @@ Use one consistent namespace label for the following commands. It is a key comme
 
 ```powershell
 # 1. Generate a key; choose its signing passphrase in GPG.
-maven-key -Namespace "com.example.library"
+New-MavenSigningKey -Namespace "com.example.library"
 
 # 2. Review the key and publish its public part.
-list-keys -SecretOnly
-upload -Namespace "com.example.library"
+Get-MavenSigningKey -SecretOnly
+Publish-MavenPublicKey -Namespace "com.example.library"
 
 # 3. Save GitHub and Central Portal credentials, each with its own encryption password.
-save-credentials
+Save-MavenCredentials
 
 # 4. Configure the repository's maven-central environment.
-maven-github-env-setup -Repository "owner/repository" -Namespace "com.example.library"
+Set-MavenGitHubEnvironment -Repository "owner/repository" -Namespace "com.example.library"
 
 # 5. Check secret names later without writing or uploading anything.
-maven-github-env-setup -Repository "owner/repository" -VerifyOnly
+Set-MavenGitHubEnvironment -Repository "owner/repository" -VerifyOnly
 ```
 
-`upload -ValidateOnly` performs local signing validation without publishing a public key. Keyserver publication makes the key's identities (including name, email and namespace comment) public.
+`Publish-MavenPublicKey -ValidateOnly` performs local signing validation without publishing a public key. Keyserver publication makes the key's identities (including name, email and namespace comment) public.
 
 GitHub setup locates the key, validates its state, tests the exact signing passphrase, exports the private key into process memory, and submits secrets through GitHub CLI. The private export is not written to a file. Temporary test files and encrypted-block copies are removed afterward.
 
@@ -115,7 +122,7 @@ GitHub setup automatically attempts creation after a 404 response and after loca
 These are defaults, not universal names. Override them to match the workflow you already have:
 
 ```powershell
-maven-github-env-setup -Repository "owner/repository" -Namespace "com.example.library" `
+Set-MavenGitHubEnvironment -Repository "owner/repository" -Namespace "com.example.library" `
   -SigningKeySecret "GPG_PRIVATE_KEY" -SigningPasswordSecret "GPG_PASSPHRASE"
 ```
 
@@ -129,8 +136,18 @@ Uploads replace existing secrets with the selected names. Uploads are sequential
 - [Credentials and security model](docs/security.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Validation status
+## Validation and releases
 
-The scripts were developed iteratively with user-reported Windows PowerShell 5.1 runs, including key generation, credential encryption/decryption, signing and successful GitHub secret uploads. Not every combination of flags has been runtime-tested. The final API-based verification path was statically reviewed; a comprehensive automated Windows test suite is not yet included.
+CI validates syntax, help, exports, wrapper compatibility, isolated GPG credential
+round-trips, and staged package contents on Windows PowerShell 5.1 and PowerShell 7.
+Actual keyserver uploads and GitHub secret writes are not performed by CI.
+See [publishing](docs/publishing.md) for the test commands, tag-based release workflow,
+account setup, and optional Authenticode signing. Gallery authentication uses its own
+API key; it does not use your Maven signing key.
 
-No real credentials, encrypted credential stores, private-key exports or user-specific key fingerprints are included in this repository.
+No real credentials, encrypted credential stores, private-key exports or
+user-specific key fingerprints are included in the repository or package.
+
+## License
+
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and [CHANGELOG](CHANGELOG.md).
