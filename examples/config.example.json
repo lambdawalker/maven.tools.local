@@ -1,0 +1,7 @@
+{
+  "Name": "Your Name",
+  "Email": "you@example.com",
+  "KeyType": "rsa",
+  "KeySize": 4096,
+  "Expires": "2y"
+}

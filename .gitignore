@@ -1,0 +1,17 @@
+# Local credentials, configuration, keyrings and exports must not be committed.
+.maven-key/
+.gnupg/
+config.json
+github-maven.json*
+*.asc
+*.gpg
+*.kbx
+*.rev
+*.key
+*.pem
+*.p12
+*.pfx
+*.lock
+*.tmp
+.env
+.env.*
