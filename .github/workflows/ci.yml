@@ -34,15 +34,21 @@ jobs:
           $modules = Join-Path $env:ProgramFiles 'WindowsPowerShell/Modules'
           Save-PSResource Pester -Version 5.7.1 -Repository PSGallery -Path $modules -TrustRepository
           Save-PSResource PSScriptAnalyzer -Version 1.23.0 -Repository PSGallery -Path $modules -TrustRepository
-      - name: Locate GnuPG for isolated tests
+      - name: Install native Windows GnuPG for isolated tests
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not (Get-Command gpg -ErrorAction SilentlyContinue)) {
-            $candidates = @("${env:ProgramFiles}\Git\usr\bin", "${env:ProgramFiles(x86)}\GnuPG\bin", "${env:ProgramFiles}\GnuPG\bin")
+          # Git's MSYS gpg interprets Windows GNUPGHOME paths as relative POSIX paths.
+          # Use native Gpg4win, the same dependency documented for module users.
+          $candidates = @("${env:ProgramFiles(x86)}\GnuPG\bin", "${env:ProgramFiles}\GnuPG\bin")
+          $directory = $candidates | Where-Object { Test-Path (Join-Path $_ 'gpg.exe') } | Select-Object -First 1
+          if (-not $directory) {
+            choco install gpg4win --yes --no-progress
+            if ($LASTEXITCODE -notin @(0, 3010)) { throw 'Gpg4win installation failed.' }
             $directory = $candidates | Where-Object { Test-Path (Join-Path $_ 'gpg.exe') } | Select-Object -First 1
-            if (-not $directory) { throw 'GnuPG is missing from the Windows runner.' }
-            $directory | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
           }
+          if (-not $directory) { throw 'Native Windows GnuPG was not found.' }
+          $directory | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Check release tag
         if: inputs.release-tag != ''
         env:
