@@ -68,7 +68,7 @@ Verification uses a paginated GitHub API request. If it fails, inspect the sanit
 
 ## Publishing workflow cannot find secrets
 
-Ensure the job declares the same environment name and references the exact names configured by setup. The script defaults to `SIGNING_KEY` and `SIGNING_PASSWORD`, but your workflow may use other names. Pass the naming overrides documented in [commands](commands.md).
+Ensure the job declares the same environment name and references the exact names configured by setup. The script defaults to `SIGNING_IN_MEMORY_KEY` and `SIGNING_IN_MEMORY_KEY_PASSWORD`, but your workflow may use other names. Pass the naming overrides documented in [commands](commands.md).
 
 ## Rotating or deleting credentials and keys
 

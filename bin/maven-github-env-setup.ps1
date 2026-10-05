@@ -24,8 +24,8 @@ No plaintext credential or private-key export is written to disk. Temporary
 signing-test data, signatures, and encrypted credential-block copies are deleted. GPG still owns its normal keyring.
 The selected key's passphrase cache is cleared before testing the supplied phrase.
 
-Default secret names (override to match your workflow): SIGNING_KEY,
-SIGNING_PASSWORD, MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD.
+Default secret names (override to match your workflow): SIGNING_IN_MEMORY_KEY,
+SIGNING_IN_MEMORY_KEY_PASSWORD, MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD.
 Optional -SigningKeyIdSecret NAME adds the full fingerprint as another secret.
 #>
 [CmdletBinding()]
@@ -35,8 +35,8 @@ param(
     [string]$Fingerprint,
     [string]$Environment = 'maven-central',
     [string]$CredentialsPath = (Join-Path $HOME '.maven-key/github-maven.json'),
-    [string]$SigningKeySecret = 'SIGNING_KEY',
-    [string]$SigningPasswordSecret = 'SIGNING_PASSWORD',
+    [string]$SigningKeySecret = 'SIGNING_IN_MEMORY_KEY',
+    [string]$SigningPasswordSecret = 'SIGNING_IN_MEMORY_KEY_PASSWORD',
     [string]$MavenUsernameSecret = 'MAVEN_CENTRAL_USERNAME',
     [string]$MavenPasswordSecret = 'MAVEN_CENTRAL_PASSWORD',
     [string]$SigningKeyIdSecret,

@@ -88,8 +88,8 @@ maven-github-env-setup -Repository "owner/repository" -VerifyOnly
 | `Fingerprint` | Optional full 40-character fingerprint |
 | `Environment` | `maven-central` |
 | `CredentialsPath` | `$HOME/.maven-key/github-maven.json` |
-| `SigningKeySecret` | `SIGNING_KEY` |
-| `SigningPasswordSecret` | `SIGNING_PASSWORD` |
+| `SigningKeySecret` | `SIGNING_IN_MEMORY_KEY` |
+| `SigningPasswordSecret` | `SIGNING_IN_MEMORY_KEY_PASSWORD` |
 | `MavenUsernameSecret` | `MAVEN_CENTRAL_USERNAME` |
 | `MavenPasswordSecret` | `MAVEN_CENTRAL_PASSWORD` |
 | `SigningKeyIdSecret` | Omitted; optionally stores full fingerprint |

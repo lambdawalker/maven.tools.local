@@ -107,8 +107,8 @@ GitHub setup automatically attempts creation after a 404 response and after loca
 
 | Default secret | Value |
 | --- | --- |
-| `SIGNING_KEY` | Complete ASCII-armored private signing key |
-| `SIGNING_PASSWORD` | Signing-key passphrase |
+| `SIGNING_IN_MEMORY_KEY` | Complete ASCII-armored private signing key |
+| `SIGNING_IN_MEMORY_KEY_PASSWORD` | Signing-key passphrase |
 | `MAVEN_CENTRAL_USERNAME` | Central Portal token username |
 | `MAVEN_CENTRAL_PASSWORD` | Central Portal token password |
 
