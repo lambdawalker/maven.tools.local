@@ -15,3 +15,8 @@ github-maven.json*
 *.tmp
 .env
 .env.*
+# Generated packages and test results
+/dist/
+/test-results/
+*.nupkg
+testResults.xml

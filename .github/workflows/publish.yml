@@ -1,0 +1,49 @@
+name: Publish to PowerShell Gallery
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag on main, for example v0.1.0'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: psgallery-Apexfission.MavenTools
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+    with:
+      release-tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  publish:
+    needs: validate
+    runs-on: windows-latest
+    environment: psgallery
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Check release tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: ./scripts/Test-Release.ps1 -Tag $env:RELEASE_TAG
+      - name: Stage module
+        shell: pwsh
+        run: ./scripts/Build-Module.ps1
+      - name: Publish package
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:PSGALLERY_API_KEY)) {
+            throw 'Add PSGALLERY_API_KEY to the psgallery GitHub environment.'
+          }
+          try {
+            Publish-Module -Path ./dist/Apexfission.MavenTools -Repository PSGallery -NuGetApiKey $env:PSGALLERY_API_KEY
+          } finally { Remove-Item Env:PSGALLERY_API_KEY -ErrorAction SilentlyContinue }

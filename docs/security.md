@@ -44,7 +44,7 @@ The setup command intentionally stores the private signing export and its passph
 
 Keyserver uploads contain only public key material, but public identities include name/email/comment. Do not place secrets in the namespace or key identity. Namespace comments select keys locally; they do not establish GitHub or Maven authorization.
 
-Verification checks secret names only. It cannot read back their values or prove that Central accepts the credentials. No tool in this repository publishes a release automatically.
+Verification checks secret names only. It cannot read back their values or prove that Central accepts the credentials. The module commands do not publish Maven releases. The separate Gallery workflow publishes this module only when a release tag is pushed or an existing tag is explicitly selected for a manual run.
 
 ## References
 
@@ -53,3 +53,15 @@ Verification checks secret names only. It cannot read back their values or prove
 - [GitHub CLI secret upload](https://cli.github.com/manual/gh_secret_set)
 - [Central PGP signing requirements](https://central.sonatype.org/publish/requirements/gpg/)
 - [Central Portal publishing tokens](https://central.sonatype.org/publish/generate-portal-token/)
+
+## Static analysis notes
+
+ScriptAnalyzer's username/password-parameter checks are suppressed only on
+`Set-MavenGitHubEnvironment`: those string parameters are secret **names** and
+a credential-file **path**, not passwords or usernames. Actual values still use
+hidden prompts and stdin. CI fails on analyzer errors. Existing warnings are
+reviewed: interactive console output is intentional; helper functions retain
+legacy names; some parameters are consumed by nested helpers; the legacy
+CreateEnvironment switch is deliberately unused. The commands do not yet expose
+ShouldProcess/WhatIf; use the documented ValidateOnly and VerifyOnly modes where
+available. An empty JSON-error parsing catch retains a sanitized fallback message.

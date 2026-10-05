@@ -1,12 +1,12 @@
 # Command reference
 
-Commands below use BAT launchers on PATH. You can instead run the corresponding `.ps1` file with PowerShell. Launchers forward arguments and preserve the exit code. Windows PowerShell policy still applies; launchers do not bypass it.
+Commands below use the installed PowerShell module. Correctly spelled legacy launchers remain available in a full source checkout; they forward parameters to these functions. Execution policy still applies.
 
-## maven-key
+## New-MavenSigningKey
 
 ```powershell
-maven-key -Namespace "com.example.library"
-maven-key -Namespace "com.example.library" -Email "publisher@example.com" -Expires "1y"
+New-MavenSigningKey -Namespace "com.example.library"
+New-MavenSigningKey -Namespace "com.example.library" -Email "publisher@example.com" -Expires "1y"
 ```
 
 Parameters: `Namespace`, `Name`, `Email`, `KeyType`, `KeySize`, `Expires`, `ConfigPath`.
@@ -21,13 +21,13 @@ Parameters: `Namespace`, `Name`, `Email`, `KeyType`, `KeySize`, `Expires`, `Conf
 - The command prints the new fingerprint. It does not export, upload or publish an artifact.
 - The old `ExistingFingerprint` and `OutputRoot` command parameters are no longer used. Legacy `OutputRoot` in JSON is tolerated and ignored.
 
-## list-keys
+## Get-MavenSigningKey
 
 ```powershell
-list-keys
-list-keys -SecretOnly
-list-keys -NoColor
-list-keys -ExpiringWithinDays 60
+Get-MavenSigningKey
+Get-MavenSigningKey -SecretOnly
+Get-MavenSigningKey -NoColor
+Get-MavenSigningKey -ExpiringWithinDays 60
 ```
 
 | Color | Meaning |
@@ -43,12 +43,12 @@ Dates are local time. Default upcoming-expiration threshold: 30 days. Public lis
 
 Capability letters: `s` signing, `c` certification, `e` encryption, `a` authentication. Lowercase letters describe that key; uppercase letters on the primary record summarize usable capabilities across the key and subkeys. Maven publishing needs signing, not encryption.
 
-## upload
+## Publish-MavenPublicKey
 
 ```powershell
-upload -Namespace "com.example.library"
-upload -Namespace "com.example.library" -ValidateOnly
-upload -Namespace "com.example.library" -Fingerprint "FULL_40_CHARACTER_FINGERPRINT"
+Publish-MavenPublicKey -Namespace "com.example.library"
+Publish-MavenPublicKey -Namespace "com.example.library" -ValidateOnly
+Publish-MavenPublicKey -Namespace "com.example.library" -Fingerprint "FULL_40_CHARACTER_FINGERPRINT"
 ```
 
 Parameters: `Namespace`, `Fingerprint`, `Keyserver`, `ValidateOnly`.
@@ -59,13 +59,13 @@ Checks key state, primary signing capability, creation/expiration dates, then si
 
 There is no `KeyDirectory` or export-folder configuration in the current version. Older keys without the namespace comment are not automatically matched.
 
-## save-credentials
+## Save-MavenCredentials
 
 ```powershell
-save-credentials
-save-credentials -Only GitHub
-save-credentials -Only MavenCentral
-save-credentials -Path "$HOME/.maven-key/github-maven.json"
+Save-MavenCredentials
+Save-MavenCredentials -Only GitHub
+Save-MavenCredentials -Only MavenCentral
+Save-MavenCredentials -Path "$HOME/.maven-key/github-maven.json"
 ```
 
 Default `Only`: `All`. Default path: `$HOME/.maven-key/github-maven.json`.
@@ -74,11 +74,11 @@ Prompts are hidden. The script asks for the GitHub token and an encryption passw
 
 When updating one provider, the other encrypted block is retained. A first-time provider-only save leaves the other block null; setup requires both. Existing data is replaced only after successful encryption. The empty `.lock` file can remain; it contains no secret and serializes cooperating script runs.
 
-## maven-github-env-setup
+## Set-MavenGitHubEnvironment
 
 ```powershell
-maven-github-env-setup -Repository "owner/repository" -Namespace "com.example.library"
-maven-github-env-setup -Repository "owner/repository" -VerifyOnly
+Set-MavenGitHubEnvironment -Repository "owner/repository" -Namespace "com.example.library"
+Set-MavenGitHubEnvironment -Repository "owner/repository" -VerifyOnly
 ```
 
 | Parameter | Default / behavior |
@@ -100,4 +100,20 @@ Normal setup unlocks both credential blocks and asks for the signing-key passphr
 
 Hardware-only keys that cannot be exported are not suitable for this CI-secret workflow. Environment creation occurs after local checks. No build/release workflow is started. Partial upload failures are not rolled back; rerun with the same values after resolving the error. If all uploads succeeded but verification failed, use `-VerifyOnly` instead.
 
-The typo command `maven-githug-env-setup` forwards to the corrected script when using the included compatibility launcher.
+## Test-MavenToolsDependency
+
+```powershell
+Test-MavenToolsDependency
+```
+
+Returns one object per native program (`gpg`, `gpg-connect-agent`, `gh`) with
+`Name`, `Available`, and `Path`. Does not execute or install programs. Missing
+programs are reported as data, not terminating errors. Only the commands that
+need a dependency require it to be installed.
+
+## Migration
+
+The duplicate typo launcher `maven-githug-env-setup.bat` was removed. Use the
+corrected `maven-github-env-setup.bat` or `Set-MavenGitHubEnvironment`. All correctly
+spelled source launchers and existing command parameters remain supported.
+Credential format v1 and `$HOME/.maven-key` paths are unchanged.
