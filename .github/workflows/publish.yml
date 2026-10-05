@@ -45,5 +45,5 @@ jobs:
             throw 'Add PSGALLERY_API_KEY to the psgallery GitHub environment.'
           }
           try {
-            Publish-Module -Path ./dist/Apexfission.MavenTools -Repository PSGallery -NuGetApiKey $env:PSGALLERY_API_KEY
+            Publish-PSResource -Path ./dist/Apexfission.MavenTools -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
           } finally { Remove-Item Env:PSGALLERY_API_KEY -ErrorAction SilentlyContinue }

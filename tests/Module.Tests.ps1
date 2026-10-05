@@ -60,6 +60,11 @@ Describe 'Module installation contract' {
         foreach ($name in $mapping.Keys) {
             $wrapper = Get-Command (Join-Path $repoRoot "bin/$name.ps1")
             $command = Get-Command $mapping[$name]
+            $functionDefaults = @{}
+            foreach ($p in $command.ScriptBlock.Ast.Body.ParamBlock.Parameters) { $functionDefaults[$p.Name.VariablePath.UserPath] = [string]$p.DefaultValue }
+            foreach ($p in $wrapper.ScriptBlock.Ast.ParamBlock.Parameters) {
+                [string]$p.DefaultValue | Should -Be $functionDefaults[$p.Name.VariablePath.UserPath]
+            }
             foreach ($parameter in $wrapper.Parameters.Keys) {
                 $command.Parameters.ContainsKey($parameter) | Should -BeTrue
                 $command.Parameters[$parameter].ParameterType | Should -Be $wrapper.Parameters[$parameter].ParameterType
@@ -78,5 +83,26 @@ Describe 'Key validation before operations' {
         $config = Join-Path $TestDrive 'config.json'
         '{"Unexpected":true}' | Set-Content $config
         { New-MavenSigningKey -ConfigPath $config } | Should -Throw '*Unknown configuration*'
+    }
+}
+
+Describe 'Native failures and key selection' {
+    BeforeAll { Import-Module $manifest -Force }
+    It 'propagates a failing GPG exit status without treating it as an empty keyring' {
+        $previousExitCode = $global:LASTEXITCODE
+        try {
+            Mock gpg -ModuleName Apexfission.MavenTools { $global:LASTEXITCODE = 23 }
+            { Get-MavenSigningKey -NoColor } | Should -Throw '*exit 23*'
+        } finally { $global:LASTEXITCODE = $previousExitCode }
+    }
+    It 'rejects a malformed fingerprint before listing or publishing keys' {
+        { Publish-MavenPublicKey -Namespace com.example.library -Fingerprint bad -ValidateOnly } | Should -Throw '*40-character fingerprint*'
+    }
+    It 'propagates command errors through a compatibility launcher' {
+        $previousPath = $env:PATH
+        try {
+            $env:PATH = ''
+            { & (Join-Path $repoRoot 'bin/list-keys.ps1') } | Should -Throw '*GnuPG*'
+        } finally { $env:PATH = $previousPath }
     }
 }

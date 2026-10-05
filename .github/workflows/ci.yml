@@ -27,12 +27,13 @@ jobs:
           ref: ${{ inputs.release-tag != '' && format('refs/tags/{0}', inputs.release-tag) || github.sha }}
           fetch-depth: 0
       - name: Install test tools
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-          Install-PackageProvider NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
-          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force
-          Install-Module PSScriptAnalyzer -RequiredVersion 1.23.0 -Scope CurrentUser -Force
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion 1.0.0
+          $modules = Join-Path $env:ProgramFiles 'WindowsPowerShell/Modules'
+          Save-PSResource Pester -Version 5.7.1 -Repository PSGallery -Path $modules -TrustRepository
+          Save-PSResource PSScriptAnalyzer -Version 1.23.0 -Repository PSGallery -Path $modules -TrustRepository
       - name: Locate GnuPG for isolated tests
         run: |
           $ErrorActionPreference = 'Stop'
@@ -65,15 +66,15 @@ jobs:
           $feed = Join-Path $env:RUNNER_TEMP 'maven-gallery-feed'
           $installed = Join-Path $env:RUNNER_TEMP 'maven-gallery-install'
           New-Item $feed, $installed -ItemType Directory -Force | Out-Null
-          Register-PSRepository -Name MavenLocalTest -SourceLocation $feed -PublishLocation $feed -InstallationPolicy Trusted
+          Register-PSResourceRepository -Name MavenLocalTest -Uri $feed -Trusted
           try {
-            Publish-Module -Path ./dist/Apexfission.MavenTools -Repository MavenLocalTest -NuGetApiKey local-test-only
+            Publish-PSResource -Path ./dist/Apexfission.MavenTools -Repository MavenLocalTest
             $version = (Import-PowerShellDataFile ./dist/Apexfission.MavenTools/Apexfission.MavenTools.psd1).ModuleVersion
-            Save-Module -Name Apexfission.MavenTools -RequiredVersion $version -Repository MavenLocalTest -Path $installed
+            Save-PSResource -Name Apexfission.MavenTools -Version $version -Repository MavenLocalTest -Path $installed
             $manifest = Get-ChildItem $installed -Recurse -Filter Apexfission.MavenTools.psd1 | Select-Object -First 1
             Import-Module $manifest.FullName -Force
             if (@(Get-Command -Module Apexfission.MavenTools).Count -ne 6) { throw 'Installed package exports are incomplete.' }
-          } finally { Unregister-PSRepository MavenLocalTest }
+          } finally { Unregister-PSResourceRepository MavenLocalTest }
       - uses: actions/upload-artifact@v4
         if: matrix.shell == 'pwsh'
         with:
